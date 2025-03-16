@@ -1,0 +1,106 @@
+Podcast RSS Hosting Platform Design Document
+
+⸻
+
+Table of Contents
+	1.	Introduction
+	2.	Features
+	•	Content Management System (CMS)
+	•	Speech-to-Text (STT) and AI Integration
+	•	RSS Feed Management
+	•	Chapter Tagging
+	3.	Technical Stack
+	•	Storage Solutions
+	•	Backend and Deployment
+	•	Type Safety
+	4.	API Design
+	5.	Sample Unified RSS Feed
+	6.	Appendix
+	•	Sample XML Files
+	•	References
+
+⸻
+
+Introduction
+
+This document details the design and implementation plan for a podcast RSS hosting platform. The platform aims to provide seamless content management, automated transcription and metadata generation, robust RSS feed management, and comprehensive chapter tagging for enhanced listener experience.
+
+Features
+
+Content Management System (CMS)
+	•	Podcast Management: Ability to input podcast artwork and descriptions.
+	•	Episode Management: Functionality to upload audio files, episode-specific artwork, and metadata compliant with the Podcast 1.0 specification.
+	•	Metadata Generation: Automatic generation of additional metadata, including keywords, topics, and named entities, to enhance discoverability.
+
+Speech-to-Text (STT) and AI Integration
+	•	Transcription: Utilize Cloudflare’s Whisper V3 Turbo to transcribe audio files into VTT format, stored appropriately.
+	•	Description Generation: Employ Claude Sonnet 3.7 to generate episode descriptions based on transcriptions, adhering to a predefined template.
+
+RSS Feed Management
+	•	Feed Publishing: Generate and publish RSS XML files conforming to standard podcast formats, ensuring compatibility with platforms like Apple Podcasts and Spotify.
+	•	Feed Updating: Automatically update and republish the RSS feed upon the addition of new episodes, maintaining a complete history.
+	•	Versioning: Store previous versions of RSS XML files in object storage, with references maintained in a relational database for version control.
+
+Chapter Tagging
+	•	Chapter Generation: Use AI to identify and generate chapters within episodes.
+	•	Timestamped Descriptions: Include timestamps in episode descriptions in the format (HH:MM:SS) Chapter Title.
+	•	ID3 Tagging: Embed chapter information within the ID3v2 metadata container of audio files for compatibility with platforms like Apple Podcasts.
+
+Technical Stack
+
+Storage Solutions
+	•	Audio Files: Stored in Cloudflare R2 for efficient delivery.
+	•	Artwork, Transcripts, RSS XML: Stored in Amazon S3 to leverage its robust CDN capabilities, ensuring quick access and reliability.
+
+Backend and Deployment
+	•	Backend Services: Utilize Convex for database management and backend logic, providing a serverless and scalable solution.
+	•	Deployment: Deploy the application using Vercel, offering seamless integration with frontend frameworks and efficient deployment workflows.
+
+Type Safety
+	•	TypeScript: Adopt TypeScript across the entire codebase to ensure consistent typing and minimize type-related errors.
+	•	Libraries: Select libraries and frameworks that offer robust TypeScript support to maintain type safety throughout the development process.
+
+API Design
+
+Design internal API endpoints with a logical structure to facilitate potential future external API access. Ensure endpoints follow RESTful principles and maintain consistent data structures, allowing for easy expansion and integration.
+
+Sample Unified RSS Feed
+
+Below is a sample unified RSS feed structure that incorporates common XML namespace declarations, standard RSS channel metadata, iTunes-specific elements, image handling, and an example episode structure.
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+     xmlns:googleplay="http://www.google.com/schemas/play-podcasts/1.0"
+     xmlns:media="http://search.yahoo.com/mrss/"
+     xmlns:podcast="https://podcastindex.org/namespace/1.0">
+  <channel>
+    <title>Your Podcast Title</title>
+    <link>https://www.yourpodcastwebsite.com</link>
+    <description>A brief description of your podcast.</description>
+    <language>en-us</language>
+    <copyright>Your Name or Company</copyright>
+    <itunes:author>Your Name</itunes:author>
+    <itunes:owner>
+      <itunes:name>Your Name</itunes:name>
+      <itunes:email>youremail@example.com</itunes:email>
+    </itunes:owner>
+    <itunes:image href="https://www.yourpodcastwebsite.com/artwork.jpg"/>
+    <itunes:explicit>no</itunes:explicit>
+    <item>
+      <title>Episode 1 Title</title>
+      <description>
+        <![CDATA[
+        (00:00:00) Introduction
+        (00:05:23) Main Topic Discussion
+        (00:15:45) Guest Interview
+        (00:25:30) Conclusion
+        ]]>
+      </description>
+      <link>https://www.yourpodcastwebsite.com/episodes/episode1</link>
+      <guid isPermaLink="false">unique-identifier-for-episode-1</guid>
+      <pubDate>Mon, 01 Jan 2025 10:00:00 GMT</pubDate>
+      <enclosure url="https://www.yourpodcastwebsite.com/audio/episode1 

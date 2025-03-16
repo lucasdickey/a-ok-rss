@@ -1,0 +1,10 @@
+{
+  "project": "a-ok-rss",
+  "team": "lucasdickey",
+  "prodUrl": "https://eager-swan-123.convex.cloud",
+  "functions": {
+    "http": {
+      "maxSize": "4mb"
+    }
+  }
+}
