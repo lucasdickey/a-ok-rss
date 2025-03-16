@@ -10,7 +10,7 @@ import xml2js from "xml2js";
 // Generate RSS feed for a podcast
 export const generateFeed = action({
   args: { podcastId: v.id("podcasts") },
-  handler: async (ctx, args) => {
+  handler: async (ctx: any, args: { podcastId: Id<"podcasts"> }) => {
     // Get the podcast
     const podcast = await ctx.db.get(args.podcastId);
     if (!podcast) {
@@ -20,7 +20,7 @@ export const generateFeed = action({
     // Get all episodes for this podcast
     const episodes = await ctx.db
       .query("episodes")
-      .filter((q) => q.eq(q.field("podcastId"), args.podcastId))
+      .filter((q: any) => q.eq(q.field("podcastId"), args.podcastId))
       .order("desc")
       .collect();
 
@@ -54,15 +54,15 @@ export const generateFeed = action({
             }
           },
           "itunes:explicit": podcast.explicit ? "yes" : "no",
-          "itunes:category": podcast.categories.map(category => ({
+          "itunes:category": podcast.categories.map((category: string) => ({
             $: {
               text: category
             }
           })),
-          item: episodes.map(episode => {
+          item: episodes.map((episode: any) => {
             // Format chapters for description
             const chaptersText = episode.chapters
-              .map(chapter => `(${formatTime(chapter.startTime)}) ${chapter.title}`)
+              .map((chapter: any) => `(${formatTime(chapter.startTime)}) ${chapter.title}`)
               .join('\n');
 
             // Create episode item
@@ -121,8 +121,8 @@ export const generateFeed = action({
     // Get current version number
     const latestFeed = await ctx.db
       .query("rssFeeds")
-      .filter((q) => q.eq(q.field("podcastId"), args.podcastId))
-      .filter((q) => q.eq(q.field("isLatest"), true))
+      .filter((q: any) => q.eq(q.field("podcastId"), args.podcastId))
+      .filter((q: any) => q.eq(q.field("isLatest"), true))
       .first();
 
     const version = latestFeed ? latestFeed.version + 1 : 1;
@@ -146,7 +146,7 @@ export const generateFeed = action({
       if (episode.chapters && episode.chapters.length > 0) {
         const chaptersJson = {
           version: "1.2.0",
-          chapters: episode.chapters.map(chapter => ({
+          chapters: episode.chapters.map((chapter: any) => ({
             startTime: chapter.startTime,
             title: chapter.title,
             ...(chapter.description ? { description: chapter.description } : {})
@@ -170,11 +170,11 @@ export const generateFeed = action({
 // Get the latest RSS feed for a podcast
 export const getLatestFeed = query({
   args: { podcastId: v.id("podcasts") },
-  handler: async (ctx, args) => {
+  handler: async (ctx: any, args: { podcastId: Id<"podcasts"> }) => {
     const latestFeed = await ctx.db
       .query("rssFeeds")
-      .filter((q) => q.eq(q.field("podcastId"), args.podcastId))
-      .filter((q) => q.eq(q.field("isLatest"), true))
+      .filter((q: any) => q.eq(q.field("podcastId"), args.podcastId))
+      .filter((q: any) => q.eq(q.field("isLatest"), true))
       .first();
 
     if (!latestFeed) {
@@ -191,14 +191,14 @@ export const getLatestFeed = query({
 // Get all RSS feed versions for a podcast
 export const getFeedVersions = query({
   args: { podcastId: v.id("podcasts") },
-  handler: async (ctx, args) => {
+  handler: async (ctx: any, args: { podcastId: Id<"podcasts"> }) => {
     const feeds = await ctx.db
       .query("rssFeeds")
-      .filter((q) => q.eq(q.field("podcastId"), args.podcastId))
+      .filter((q: any) => q.eq(q.field("podcastId"), args.podcastId))
       .order("desc")
       .collect();
 
-    return feeds.map(feed => ({
+    return feeds.map((feed: any) => ({
       ...feed,
       feedUrl: getS3Url(feed.s3XmlKey),
     }));

@@ -5,9 +5,8 @@ import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { uploadToS3, getS3Url } from "./utils/s3";
-import { generateRssFeed } from "./rss";
-import { Anthropic } from "@anthropic-ai/sdk";
-import { Ai } from "@cloudflare/ai";
+import { api } from "./_generated/api";
+import { getAnthropicClient, getCloudflareAi, transcribeAudio, generateText } from "./utils/ai";
 
 // Get all episodes for a podcast
 export const getEpisodes = query({
@@ -83,10 +82,10 @@ export const createEpisode = mutation({
     });
 
     // Schedule AI processing
-    await ctx.scheduler.runAfter(0, "episodes:processAudio", { episodeId });
+    await ctx.scheduler.runAfter(0, api.episodes.processAudio, { episodeId });
 
     // Generate and publish RSS feed
-    await ctx.scheduler.runAfter(0, "rss:generateFeed", { podcastId: args.podcastId });
+    await ctx.scheduler.runAfter(0, api.rss.generateFeed, { podcastId: args.podcastId });
 
     return episodeId;
   },
@@ -110,24 +109,23 @@ export const processAudio = action({
 
     // Get audio file from S3
     const audioUrl = getS3Url(episode.s3AudioKey);
+    
+    // Fetch the audio file
+    const audioResponse = await fetch(audioUrl);
+    const audioArrayBuffer = await audioResponse.arrayBuffer();
 
     // Initialize Cloudflare AI for transcription
-    const ai = new Ai();
+    const ai = getCloudflareAi(process.env.CLOUDFLARE_AI);
 
     // Transcribe audio using Whisper
-    const transcription = await ai.run("@cf/whisper/v3-turbo", {
-      audio: audioUrl,
-      output_format: "vtt",
-    });
+    const transcriptionText = await transcribeAudio(ai, audioArrayBuffer);
 
     // Save transcript to S3
-    const s3TranscriptKey = `episodes/transcripts/${args.episodeId}.vtt`;
-    await uploadToS3(Buffer.from(transcription), s3TranscriptKey, "text/vtt");
+    const s3TranscriptKey = `episodes/transcripts/${args.episodeId}.txt`;
+    await uploadToS3(Buffer.from(transcriptionText), s3TranscriptKey, "text/plain");
 
     // Generate chapters using Claude
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY || "",
-    });
+    const anthropic = getAnthropicClient(process.env.ANTHROPIC_API_KEY || "");
 
     const chapterPrompt = `
     You are an AI assistant helping to generate podcast chapters.
@@ -135,21 +133,14 @@ export const processAudio = action({
     For each chapter, provide a short, descriptive title and the timestamp where it begins.
     
     Transcript:
-    ${transcription}
+    ${transcriptionText}
     
     Format your response as a JSON array with objects containing:
     - startTime (in seconds)
     - title (string)
     `;
 
-    const chapterResponse = await anthropic.messages.create({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: chapterPrompt }],
-    });
-
-    // Extract chapters from Claude's response
-    const chaptersText = chapterResponse.content[0].text;
+    const chaptersText = await generateText(anthropic, chapterPrompt);
     const chaptersJson = chaptersText.match(/\[[\s\S]*\]/)?.[0] || "[]";
     const chapters = JSON.parse(chaptersJson);
 
@@ -163,33 +154,27 @@ export const processAudio = action({
     Episode: ${episode.title}
     
     Transcript:
-    ${transcription}
+    ${transcriptionText}
     
     Chapters:
-    ${chapters.map(c => `(${formatTime(c.startTime)}) ${c.title}`).join('\n')}
+    ${chapters.map((c: any) => `(${formatTime(c.startTime)}) ${c.title}`).join('\n')}
     
     Create a description that summarizes the episode content and highlights key points.
     The description should be engaging and informative, around 150-250 words.
     `;
 
-    const descriptionResponse = await anthropic.messages.create({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: descriptionPrompt }],
-    });
-
-    const enhancedDescription = descriptionResponse.content[0].text;
+    const enhancedDescription = await generateText(anthropic, descriptionPrompt);
 
     // Update episode with transcription, chapters, and enhanced description
     await ctx.db.patch(args.episodeId, {
-      transcript: transcription,
+      transcript: transcriptionText,
       s3TranscriptKey: s3TranscriptKey,
       chapters: chapters,
       description: enhancedDescription,
     });
 
     // Regenerate RSS feed
-    await ctx.scheduler.runAfter(0, "rss:generateFeed", { podcastId: episode.podcastId });
+    await ctx.scheduler.runAfter(0, api.rss.generateFeed, { podcastId: episode.podcastId });
 
     return {
       success: true,
@@ -204,11 +189,7 @@ function formatTime(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
   
-  return [
-    hours.toString().padStart(2, '0'),
-    minutes.toString().padStart(2, '0'),
-    secs.toString().padStart(2, '0'),
-  ].join(':');
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Update an existing episode
@@ -256,7 +237,7 @@ export const updateEpisode = mutation({
     await ctx.db.patch(id, updateData);
     
     // Regenerate RSS feed
-    await ctx.scheduler.runAfter(0, "rss:generateFeed", { podcastId: episode.podcastId });
+    await ctx.scheduler.runAfter(0, api.rss.generateFeed, { podcastId: episode.podcastId });
     
     return id;
   },
@@ -276,7 +257,7 @@ export const deleteEpisode = mutation({
     await ctx.db.delete(args.id);
     
     // Regenerate RSS feed
-    await ctx.scheduler.runAfter(0, "rss:generateFeed", { podcastId: episode.podcastId });
+    await ctx.scheduler.runAfter(0, api.rss.generateFeed, { podcastId: episode.podcastId });
     
     return args.id;
   },

@@ -1,90 +1,80 @@
-# Welcome to your Convex functions directory!
+# A-OK RSS - Podcast RSS Hosting Platform
 
-Write your Convex functions here.
-See https://docs.convex.dev/functions for more.
+This directory contains the Convex functions for the A-OK RSS podcast hosting platform. These serverless functions handle the backend logic for podcast management, episode processing, and RSS feed generation.
 
-A query function that takes two arguments looks like:
+## Key Components
 
-```ts
-// functions.js
-import { query } from "./_generated/server";
-import { v } from "convex/values";
+### Core Functions
 
-export const myQueryFunction = query({
-  // Validators for arguments.
-  args: {
-    first: v.number(),
-    second: v.string(),
-  },
+- **Podcast Management**: CRUD operations for podcasts in `podcasts.ts`
+- **Episode Management**: CRUD operations for episodes in `episodes.ts`, including AI-powered audio processing
+- **RSS Feed Generation**: Functions in `rss.ts` to generate and publish podcast RSS feeds
 
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Read the database as many times as you need here.
-    // See https://docs.convex.dev/database/reading-data.
-    const documents = await ctx.db.query("tablename").collect();
+### Utility Functions
 
-    // Arguments passed from the client are properties of the args object.
-    console.log(args.first, args.second);
+- **AI Integration** (`utils/ai.ts`): 
+  - Cloudflare Whisper V3 Turbo for audio transcription
+  - Anthropic Claude for generating episode descriptions and chapters
+- **Storage** (`utils/s3.ts`): Cloudflare R2 storage for audio files, images, and RSS feeds
+- **XML Utilities** (`utils/xml.ts`): Tools for generating standard-compliant podcast RSS feeds
 
-    // Write arbitrary JavaScript here: filter, aggregate, build derived data,
-    // remove non-public properties, or create new objects.
-    return documents;
-  },
-});
+## AI Integration
+
+We've integrated two powerful AI services:
+
+1. **Cloudflare Whisper V3 Turbo** for audio transcription
+   - Processes uploaded podcast audio files
+   - Generates accurate text transcripts
+
+2. **Anthropic Claude** for content generation
+   - Creates podcast chapters based on transcripts
+   - Generates enhanced episode descriptions
+
+## Deployment
+
+### Environment Variables
+
+The following environment variables are required:
+
+```
+NEXT_PUBLIC_CONVEX_URL=<your-convex-url>
+CLOUDFLARE_ACCESS_KEY_ID=<your-cloudflare-access-key>
+CLOUDFLARE_SECRET_ACCESS_KEY=<your-cloudflare-secret>
+CLOUDFLARE_R2_ENDPOINT=<your-r2-endpoint>
+R2_BUCKET_NAME=<your-bucket-name>
+CLOUDFLARE_ACCOUNT_ID=<your-account-id>
+R2_TOKEN=<your-r2-token>
+ANTHROPIC_API_KEY=<your-anthropic-api-key>
 ```
 
-Using this query function in a React component looks like:
+### Deployment Process
 
-```ts
-const data = useQuery(api.functions.myQueryFunction, {
-  first: 10,
-  second: "hello",
-});
-```
+1. Configure your Convex project using `convex.json`
+2. Deploy Convex functions using `npx convex deploy`
+3. Deploy the Next.js frontend to Vercel, ensuring environment variables are set
 
-A mutation function looks like:
+See the main README.md for detailed deployment instructions.
 
-```ts
-// functions.js
-import { mutation } from "./_generated/server";
-import { v } from "convex/values";
+## Recent Updates
 
-export const myMutationFunction = mutation({
-  // Validators for arguments.
-  args: {
-    first: v.string(),
-    second: v.string(),
-  },
+- Fixed TypeScript errors in AI utility functions
+- Improved audio transcription using Cloudflare Whisper V3 Turbo
+- Enhanced scheduler function references using the Convex API
+- Added proper type annotations to prevent TypeScript errors
+- Implemented proper error handling in AI processing functions
 
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Insert or modify documents in the database here.
-    // Mutations can also read from the database like queries.
-    // See https://docs.convex.dev/database/writing-data.
-    const message = { body: args.first, author: args.second };
-    const id = await ctx.db.insert("messages", message);
+## Architecture
 
-    // Optionally, return a value from your mutation.
-    return await ctx.db.get(id);
-  },
-});
-```
+The application follows a serverless architecture:
 
-Using this mutation function in a React component looks like:
+1. **Frontend**: Next.js React application
+2. **Backend**: Convex serverless functions
+3. **Storage**: Cloudflare R2 for media and feed storage
+4. **AI Processing**: Cloudflare AI and Anthropic Claude
 
-```ts
-const mutation = useMutation(api.functions.myMutationFunction);
-function handleButtonPress() {
-  // fire and forget, the most common way to use mutations
-  mutation({ first: "Hello!", second: "me" });
-  // OR
-  // use the result once the mutation has completed
-  mutation({ first: "Hello!", second: "me" }).then((result) =>
-    console.log(result),
-  );
-}
-```
+## Development Notes
 
-Use the Convex CLI to push your functions to a deployment. See everything
-the Convex CLI can do by running `npx convex -h` in your project root
-directory. To learn more, launch the docs with `npx convex docs`.
+- Use `npx convex dev` to run the development server
+- Test AI integrations with small audio files first
+- Ensure all environment variables are properly set
+- Check the Convex dashboard for function execution logs

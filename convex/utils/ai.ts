@@ -4,39 +4,53 @@
 import { Ai } from "@cloudflare/ai";
 import { Anthropic } from "@anthropic-ai/sdk";
 
-// Initialize Cloudflare AI client
-export function getCloudflareAI() {
-  return new Ai();
+// Initialize Cloudflare AI with proper binding
+export function getCloudflareAi(binding: any) {
+  return new Ai(binding);
 }
 
-// Initialize Anthropic Claude client
-export function getClaude() {
-  return new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY || "",
-  });
+// Initialize Anthropic client
+export function getAnthropicClient(apiKey: string) {
+  return new Anthropic({ apiKey });
 }
 
 // Transcribe audio using Cloudflare Whisper
-export async function transcribeAudio(audioUrl: string): Promise<string> {
-  const ai = getCloudflareAI();
-  
+export async function transcribeAudio(ai: Ai, audioBuffer: ArrayBuffer) {
   try {
-    const transcription = await ai.run("@cf/whisper/v3-turbo", {
-      audio: audioUrl,
-      output_format: "vtt",
-    });
+    const inputs = {
+      audio: Array.from(new Uint8Array(audioBuffer))
+    };
     
-    return transcription;
+    // Use the correct model name for Whisper
+    const transcription = await ai.run('@cf/openai/whisper', inputs);
+    
+    return transcription.text || '';
   } catch (error) {
     console.error("Error transcribing audio:", error);
-    throw new Error("Failed to transcribe audio");
+    throw error;
+  }
+}
+
+// Generate text using Anthropic Claude
+export async function generateText(anthropic: Anthropic, prompt: string) {
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-3-sonnet-20240229",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    });
+    
+    return response.content[0].text;
+  } catch (error) {
+    console.error("Error generating text with Claude:", error);
+    throw error;
   }
 }
 
 // Generate chapters from transcript using Claude
 export async function generateChapters(transcript: string): Promise<Array<{ startTime: number; title: string; description?: string }>> {
-  const claude = getClaude();
-  
+  const client = getAnthropicClient(process.env.ANTHROPIC_API_KEY || "");
+
   const chapterPrompt = `
   You are an AI assistant helping to generate podcast chapters.
   Based on the following transcript, identify 3-7 distinct segments or topics and create timestamped chapters.
@@ -51,17 +65,12 @@ export async function generateChapters(transcript: string): Promise<Array<{ star
   `;
 
   try {
-    const response = await claude.messages.create({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: chapterPrompt }],
-    });
+    const response = await generateText(client, chapterPrompt);
 
     // Extract chapters from Claude's response
-    const chaptersText = response.content[0].text;
-    const chaptersJson = chaptersText.match(/\[[\s\S]*\]/)?.[0] || "[]";
+    const chaptersText = response.match(/\[[\s\S]*\]/)?.[0] || "[]";
     
-    return JSON.parse(chaptersJson);
+    return JSON.parse(chaptersText);
   } catch (error) {
     console.error("Error generating chapters:", error);
     return [];
@@ -75,8 +84,8 @@ export async function generateDescription(
   transcript: string,
   chapters: Array<{ startTime: number; title: string }>
 ): Promise<string> {
-  const claude = getClaude();
-  
+  const client = getAnthropicClient(process.env.ANTHROPIC_API_KEY || "");
+
   // Format chapter timestamps
   const formattedChapters = chapters.map(c => `(${formatTime(c.startTime)}) ${c.title}`).join('\n');
   
@@ -99,13 +108,9 @@ export async function generateDescription(
   `;
 
   try {
-    const response = await claude.messages.create({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: descriptionPrompt }],
-    });
-
-    return response.content[0].text;
+    const response = await generateText(client, descriptionPrompt);
+    
+    return response;
   } catch (error) {
     console.error("Error generating description:", error);
     return "";
