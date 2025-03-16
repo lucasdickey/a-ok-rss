@@ -1,3 +1,6 @@
+// Use Node.js runtime for AWS S3 storage
+"use node";
+
 import AWS from 'aws-sdk';
 
 export function getS3Client() {

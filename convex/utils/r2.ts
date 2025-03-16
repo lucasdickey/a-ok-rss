@@ -1,3 +1,6 @@
+// Use Node.js runtime for Cloudflare R2 storage
+"use node";
+
 // Utility functions for Cloudflare R2 integration
 
 interface R2Config {

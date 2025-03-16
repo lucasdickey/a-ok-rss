@@ -1,3 +1,6 @@
+// Use Node.js runtime for AI integrations
+"use node";
+
 import { Ai } from "@cloudflare/ai";
 import { Anthropic } from "@anthropic-ai/sdk";
 

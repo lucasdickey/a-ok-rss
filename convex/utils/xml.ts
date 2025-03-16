@@ -1,3 +1,6 @@
+// Use Node.js runtime for XML processing
+"use node";
+
 import { Builder } from 'xml2js';
 
 interface PodcastInfo {
